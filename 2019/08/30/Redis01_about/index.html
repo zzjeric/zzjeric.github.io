@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content="Eric's blog"><title>Redis01_概览 | Eric's blog</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/normalize.css/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><link rel="alternate" type="application/atom+xml" href="/atom.xml"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/clipboard/dist/clipboard.min.js"></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.js"></script><link rel="stylesheet" href="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.css"><meta name="generator" content="Hexo 5.4.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">Redis01_概览</h1><a id="logo" href="/.">Eric's blog</a><p class="description">生如逆旅 一苇以航</p></div><div id="nav-menu"><a class="current" href="/."><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">Redis01_概览</h1><div class="post-meta">2019-08-30<span> | </span><span class="category"><a href="/categories/Technology/">Technology</a></span></div><a class="disqus-comment-count" href="/2019/08/30/Redis01_about/#vcomment"><span class="valine-comment-count" data-xid="/2019/08/30/Redis01_about/"></span><span> 条评论</span></a><div class="post-content"><h3><span id="redis的特点">Redis的特点</span></h3><ul>
+<li>提供了很丰富的数据结构和命令 可以方便灵活的的应用到实际场景中</li>
+<li>可持久化（快照或AOF）</li>
+<li>支持主从复制 建立集群 以扩展性能</li>
+</ul>
+<p>与另一个no sql 数据库memcached相比， memcached只支持普通字符串，且不支持持久化。</p>
+<h3><span id="redis-发布和订阅">Redis 发布和订阅</span></h3><p>Redis 提供了发布和订阅的命令，因此可以在可靠性要求不高的场景作为消息队列使用。</p>
+<ul>
+<li>SUBSCRIBE subscribe channel [channel] 订阅一个或多个channel</li>
+<li>UNSUBSCRIBE</li>
+<li>PUBLISH publish channel message 向某个频道发消息</li>
+<li>PSUBSCRIBE psubscribe pattern [pattern] 订阅与给定模式匹配的所有channel</li>
+<li>PUNSUBSCRIBE </li>
+</ul>
+<p>缺点：</p>
+<ol>
+<li>如果消息消费者的处理能力有限，有可能会有大量消息堆积在Redis输出缓冲区，导致Redis性能下降，甚至崩溃。 新版Redis不会出现该问题， 它会自动断开不符合client-output-buffer-limit pubsub选项要求的客户端。</li>
+<li>可靠性差，如果网络错误等原因导致客户端失联，消息会丢失。</li>
+</ol>
+<h3><span id="redis-事务">Redis 事务</span></h3><p>使用multi和exec命令来实现事务，发送multi给redis后，redis会将multi后发送的所有命令放到缓冲队列，并不立即执行，而是等收到exec后，将这一系列命令统一执行。<br>multi和exec能保证一个客户端发来的命令可以原子执行，但是并不能保证多个客户端对同一个数据进行操作时的数据一致性，这时候就需要搭配watch和unwatch机制来控制。<br>多个客户端操作同一个key，可以先用watch命令对该key添加一个监视，然后进行multi和exec，在exec之前，如果有其他客户端修改该key，它会收到一个错误，并可以根据该错误自行决定重试或放弃。<br>Redis这种事务模式相比于传统关系数据库对临界资源加锁的方式，是一种乐观锁，即，优先假设不会冲突，通过二次检查机制来确定是否有冲突，有则自行决定重试或放弃，因为是非阻塞的，理论上效率更高。而对临界资源加锁，则优先假设会发生冲突，一个客户端操作时，其他客户端只能阻塞，效率差。</p>
+<p>unwatch可以在watch执行后，multi执行前，对连接重置，取消监视。<br>dicard可以在multi执行后，exec执行前，对连接重置，清空multi后已入队的所有命令。</p>
+<h3><span id="redis-持久化">Redis 持久化</span></h3><ol>
+<li>快照</li>
+</ol>
+<p>SAVE 指令：服务器停止响应客户端指令，并开始创建快照，直到快照创建完成，很少使用 ，因为阻塞。 </p>
+<p>BGSAVE 指令： 服务器会创建一个子进程，负责创建快照，主进程继续响应客户端指令。</p>
+<p>注： 配置选项： save 60 10000 表示如果60s内有10000次写入，就会自动触发BGSAVE指令，如果设置了多个save配置，任意一个设置的条件被满足，就会触发BGSAVE。</p>
+<p>缺点： </p>
+<ul>
+<li>数据丢失。 快照相当于定时备份，有可能会丢失从上次备份到现在的一部分数据。</li>
+<li>停顿。 在数据量很大时，受限于硬件和虚拟化技术，执行bgsave系统创建子进程可能会有长时间停顿，导致Redis性能减低甚至短时间无法使用。（XEN虚拟机上的Redis服务器在20G数据量运行BGSAVE停顿4~6s）</li>
+</ul>
+<ol start="2">
+<li>AOF</li>
+</ol>
+<p>即将每一次写入指令都持久化到AOF文件中，可以选择将 appendfsync设置为 always、everysec、no 来同步。<br>always 表示所有写入指令都会append到aof文件中，这对存储设备要求很高，在固态硬盘下，可能引发写入放大，使寿命减少，所以一般采用everysec，即一秒钟写入一次，即便丢失，也只丢失一秒内的数据。</p>
+<p>缺点：</p>
+<p>AOF文件的体积会变得非常大，甚至占满可用空间，Redis在重启后需要重新执行AOF还原数据，文件很大的情况下，还原可能会很长。 可以通过BGREWRITEAOF指令重写AOF文件，该指令创建子进程删除AOF中的冗余指令。</p>
+<p>参考： 《Redis in action》 中国工信出版社。</p>
+</div><div class="tags"><a href="/tags/Redis/"><i class="fa fa-tag"></i>Redis</a></div><div class="post-nav"><a class="pre" href="/2019/08/30/Redis02_data_structure/">Redis02_数据结构</a><a class="next" href="/2019/08/05/july_emotion/">7月随想</a></div><div id="vcomment"></div><script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script><script src="//unpkg.com/valine@latest/dist/Valine.min.js"></script><script>var notify = 'false' == 'true' ? true : false;
+var verify = 'false' == 'true' ? true : false;
+var GUEST_INFO = ['nick','mail','link'];
+var guest_info = 'nick,mail,link'.split(',').filter(function(item){
+  return GUEST_INFO.indexOf(item) > -1
+});
+guest_info = guest_info.length == 0 ? GUEST_INFO :guest_info;
+window.valine = new Valine({
+  el:'#vcomment',
+  notify:notify,
+  verify:verify,
+  appId:'phSM9k9SgjYgD57rnCmYul5b-MdYXbMMI',
+  appKey:'J2I1qMXMAdlNQtczKNTcesXL',
+  placeholder:'Just so so',
+  avatar:'mm',
+  guest_info:guest_info,
+  pageSize:'10'
+})
+</script></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><form class="search-form" action="//www.google.com/search" method="get" accept-charset="utf-8" target="_blank"><input type="text" name="q" maxlength="20" placeholder="Search"/><input type="hidden" name="sitesearch" value="http://example.com"/></form></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Emotion/">Emotion</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Poetry/">Poetry</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Technology/">Technology</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Travel/">Travel</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%91%84%E5%BD%B1/">摄影</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/%E6%97%85%E8%A1%8C/" style="font-size: 15px;">旅行</a> <a href="/tags/%E7%AC%94%E8%AE%B0/" style="font-size: 15px;">笔记</a> <a href="/tags/%E8%AE%A1%E5%88%92/" style="font-size: 15px;">计划</a> <a href="/tags/Deepin/" style="font-size: 15px;">Deepin</a> <a href="/tags/Docker/" style="font-size: 15px;">Docker</a> <a href="/tags/JAVA/" style="font-size: 15px;">JAVA</a> <a href="/tags/JAVA-%E5%B9%B6%E5%8F%91/" style="font-size: 15px;">JAVA 并发</a> <a href="/tags/Mybatis/" style="font-size: 15px;">Mybatis</a> <a href="/tags/Python/" style="font-size: 15px;">Python</a> <a href="/tags/Redis/" style="font-size: 15px;">Redis</a> <a href="/tags/Spring/" style="font-size: 15px;">Spring</a> <a href="/tags/DesignPattern/" style="font-size: 15px;">DesignPattern</a> <a href="/tags/%E6%96%AD%E8%88%8D%E7%A6%BB/" style="font-size: 15px;">断舍离</a> <a href="/tags/%E5%BE%92%E6%AD%A5/" style="font-size: 15px;">徒步</a> <a href="/tags/%E6%A1%86%E6%9E%B6/" style="font-size: 15px;">框架</a> <a href="/tags/%E6%91%84%E5%BD%B1-%E4%BA%BA%E6%96%87/" style="font-size: 15px;">摄影 人文</a> <a href="/tags/%E6%97%85%E8%A1%8C-%E8%A5%BF%E8%97%8F-%E6%91%84%E5%BD%B1/" style="font-size: 15px;">旅行 西藏 摄影</a> <a href="/tags/%E8%AF%97/" style="font-size: 15px;">诗</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2020/02/01/k8s_cluster_deploy_116/">基于kubeadm搭建k8s集群v1.16</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/02/01/distribute_lock_redisson/">关于Redis分布式锁以及Redisson的用法</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/02/01/redis_lua_counter/">使用redistemplate调用lua脚本实现的redis计数器</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/02/01/encrypt_alg/">说说加密算法</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/02/01/imsi_iccid_imei/">电信领域几个名词的理解(IMSI ICCID IMEI)</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/02/01/k8s_meter_unit/">Kubernetes中的计量单位</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/02/01/mybatis_batch_oper/">Mybatis批量insert数据的写法</a></li><li class="post-list-item"><a class="post-list-link" href="/2020/01/01/2020/">不可能完成的年度计划之2020篇</a></li><li class="post-list-item"><a class="post-list-link" href="/2019/10/20/CI_CD_microservice/">对CI CD 微服务的一些理解</a></li><li class="post-list-item"><a class="post-list-link" href="/2019/10/19/loadaverage/">关于load average 指标</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="https://weibo.com/EricZhaoly/profile?rightmod=1&amp;wvr=6&amp;mod=personinfo&amp;is_all=1" title="微博" target="_blank">微博</a><ul></ul><a href="https://github.com/zzjeric" title="Github" target="_blank">Github</a><ul></ul><a href="https://www.zhihu.com/people/zhao-zi-shang" title="知乎" target="_blank">知乎</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2021 <a href="/." rel="nofollow">Eric's blog.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a class="show" id="rocket" href="#top"></a><script type="text/javascript" src="/js/totop.js?v=1.0.0" async></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.css"><script type="text/javascript" src="/js/love.js"></script><script type="text/javascript" src="/js/copycode.js" successtext="复制成功!"></script><link rel="stylesheet" type="text/css" href="/css/copycode.css"><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>
